@@ -26,12 +26,14 @@ module.exports = (app, baseFolder) => {
   torrent.on('stop', (peer) => broadcastChange(app.io, peer, 'stop'))
   torrent.on('error', (peer) => broadcastChange(app.io, peer, 'error'))
   torrent.on('download', (peer) => broadcastDownload(app.io, peer))
+  torrent.on('metadata', (peer) => broadcastDownload(app.io, peer))
   if (app.ioSSL) {
     torrent.on('new', (peer) => broadcastChange(app.ioSSL, peer, 'new'))
     torrent.on('done', (peer) => broadcastChange(app.ioSSL, peer, 'done'))
     torrent.on('stop', (peer) => broadcastChange(app.ioSSL, peer, 'stop'))
     torrent.on('error', (peer) => broadcastChange(app.ioSSL, peer, 'error'))
     torrent.on('download', (peer) => broadcastDownload(app.ioSSL, peer))
+    torrent.on('metadata', (peer) => broadcastDownload(app.io, peer))
   }
 
   app.get('/torrent', (req, res) => {
@@ -61,8 +63,9 @@ module.exports = (app, baseFolder) => {
 
     if (specialMagnet.test(magnet)) {
       magnet = magnet.replace(/tcloud:/, '')
-      searchEngine.getTorrent({ magnet }).then(() => {
-        var peer = torrent.download(Path.join('/tmp', magnet.slice(0, 20)))
+      searchEngine.getTorrent({ magnet }).then((realMagnet) => {
+        console.log(realMagnet)
+        var peer = torrent.download(realMagnet)
         res.json(peer)
       }).catch((err) => { console.log(err) })
     } else if (magnet) {
