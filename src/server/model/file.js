@@ -39,12 +39,7 @@ export default class File extends EventEmitter {
         this.fullPath(), {
           recursive: true
         },
-        (eventType, filename) => {
-          if (new Date() - this.idle.date >= this.idle.timeout) {
-            this.idle.date = new Date()
-            this.watchChange(eventType, filename)
-          }
-        }
+        (eventType, filename) => this.watchChange(eventType, filename)
       )
     }
   }
@@ -62,9 +57,26 @@ export default class File extends EventEmitter {
     }
   }
 
+  updateMetadata () {
+    fs.stat(this.fullPath(), (err, stats) => {
+      if (err) {
+        this.mtime = null
+        this._size = 0
+        this.exist = false
+      } else {
+        this.mtime = stats.mtime
+        this._size = stats.size // Bytes
+        this.exist = true
+      }
+    })
+  }
+
   watchChange (eventType, filename) {
-    this.initMetadata()
-    this.emit('change')
+    this.updateMetadata()
+    if (new Date() - this.idle.date >= this.idle.timeout) {
+      this.idle.date = new Date()
+      this.emit('change')
+    }
   }
 
   fullPath () {
@@ -90,8 +102,7 @@ export default class File extends EventEmitter {
     }
     this.log.info(`Removing ${this.fullPath()}`)
 
-    fs.unlinkSync(this.fullPath())
-    this.emit('remove', this)
+    fs.unlink(this.fullPath(), () => this.emit('remove', this))
   }
 
   addDownloader () {
@@ -116,15 +127,13 @@ export default class File extends EventEmitter {
     }
     this.log.info(`Renaming ${this.fullPath()} into ${this._path}/${name}`)
 
-    fs.renameSync(this.fullPath(), `${this._path}/${name}`)
-    this.emit('rename', this)
+    fs.rename(this.fullPath(), `${this._path}/${name}`, () => this.emit('rename', this))
   }
 
   create () {
     this.log.info(`Creating ${this.fullPath()}`)
 
-    fs.writeFileSync(this.fullPath(), '')
-    this.initWatch()
+    fs.writeFile(this.fullPath(), '', () => this.initWatch())
   }
 
   toJSON () {
